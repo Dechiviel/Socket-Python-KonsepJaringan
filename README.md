@@ -24,3 +24,4 @@ python Client.py <server_ip> <server_port>
 
 **Usage Notes & Tips**
 - Use `127.0.0.1` (localhost) for testing on the same machine.
+- Client naming format is `Client\<id\>`.
