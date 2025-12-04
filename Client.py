@@ -138,6 +138,10 @@ class Client:
             else:
                 print(f"[{ts}] Tidak ada file pending dari {from_username}")
         
+        elif msg == '/exit':
+            print(f"[{ts}] Disconnecting from server...")
+            self.close()
+
         else:
             try:
                 self.sock.send(msg.encode())
