@@ -35,7 +35,7 @@ class Client:
                     self.sock.send(json.dumps({'type': 'SET_USERNAME', 'username': username}).encode())
                     
                     # Tunggu konfirmasi
-                    data = self.sock.recv(4096)
+                    data = self.sock.recv(1000000)
                     if data:
                         response = json.loads(data.decode())
                         if response.get('type') == 'SUCCESS':
@@ -58,6 +58,7 @@ class Client:
         print("/sendfile <username> <path>  - Kirim file ke user lain")
         print("/acceptfile <username>       - Terima file dari user")
         print("/rejectfile <username>       - Tolak file dari user")
+        print("/exit                        - Mengeluarkan User dari server")
         print("================\n")
         print("Type messages or commands:")
 
@@ -207,7 +208,7 @@ class Client:
     def receive_messages(self):
         while True:
             try:
-                data = self.sock.recv(4096)
+                data = self.sock.recv(1000000)
                 if not data:
                     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     print(f"[{ts}] [INFO] Server closed the connection.")

@@ -4,6 +4,7 @@ import threading
 import json
 import os
 import base64
+import signal
 from datetime import datetime
 
 class Server:
@@ -16,6 +17,8 @@ class Server:
             self.port = int(sys.argv[2])
             self.clients = {}  # {username: socket}
             self.lock = threading.Lock()
+            self.running = True
+            signal.signal(signal.SIGINT, self.shutdown)
 
     def start(self):
         print("Memulai server.")
@@ -28,8 +31,16 @@ class Server:
 
         threading.Thread(target=self.server_input, daemon=True).start()
 
-        while True:
-            sock, addr = self.server.accept()
+        while self.running:
+            try:
+                self.server.settimeout(1.0)
+                sock, addr = self.server.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                if not self.running:
+                    break
+                raise
 
             ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             print(f"[{ts}] [INFO] Client baru terhubung dari {addr}.")
@@ -46,7 +57,7 @@ class Server:
         
         # Client harus set username dulu
         try:
-            data = client_socket.recv(4096)
+            data = client_socket.recv(1000000)
             if data:
                 payload = json.loads(data.decode().strip())
                 if payload.get('type') == 'SET_USERNAME':
@@ -82,7 +93,7 @@ class Server:
         # Handle messages
         while True:
             try:
-                data = client_socket.recv(4096)
+                data = client_socket.recv(1000000)
                 if not data:
                     break
 
@@ -103,6 +114,9 @@ class Server:
                         self.handle_file_response(username, payload)
                     elif msg_type == 'LIST':
                         self.handle_list_clients(username)
+                    elif msg_type == 'DISCONNECT':
+                        print(f"[{ts}] [INFO] {username} disconnecting...")
+                        break
                     else:
                         print(f"[{ts}] [WARNING] Unknown message type: {msg_type}")
                         
@@ -270,6 +284,33 @@ class Server:
 
             else:
                 print("Perintah tidak dikenal!")
+
+    def shutdown(self, signum, frame):
+        if not self.running:
+            return
+        print("\n[INFO] shutting down server...")
+        self.running = False
+
+        with self.lock:
+            for username, sock in list(self.clients.items()):
+                try:
+                    sock.send(json.dumps({'type': 'SERVER_MSG', 'message' : 'Server is shutting down.'}))
+                except:
+                    pass
+                try:
+                    sock.close()
+                except:
+                    pass
+            self.clients.clear()
+
+        try:
+            self.server.close()
+        except:
+            pass
+
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"[{ts}] Server shutdown complete.")
+        sys.exit(0)
 
 
 
