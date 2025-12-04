@@ -12,6 +12,7 @@ class Client:
         else:
             self.host = sys.argv[1]
             self.port = int(sys.argv[2])
+            self.running = True
 
     def start(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -19,39 +20,55 @@ class Client:
 
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"[{ts}] Connected to server.")
-        print("Type messages to send to the server:")
-
         threading.Thread(target=self.receive_messages, daemon=True).start()
+        import time
+        time.sleep(0.1)
 
-        while True:
+        print(f"Type messages to send to the server:")
+
+        while self.running:
             try:
                 msg = input()
             except EOFError:
                 break
+            except KeyboardInterrupt:
+                print("\n[INFO] Disconnecting...")
 
-            if not msg:
+            if not msg.strip():
                 continue
 
             ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             try:
                 self.sock.send(msg.encode())
-                print(f"[{ts}] [YOU] >> {msg}")
-            except Exception as e:
-                print(f"[{ts}] [ERROR] Failed to send: {e}")
+                if msg.strip():
+                    pass
+            except BrokenPipeError:
+                print(f"[{ts}] [ERROR] Server closed the connection.")
                 break
+            except Exception as e:
+                print(f"[ERROR] Connection error: {e}")
+            finally:
+                self.cleanup()
 
     def receive_messages(self):
-        while True:
+        while self.running:
             try:
                 data = self.sock.recv(1024)
                 if not data:
                     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     print(f"[{ts}] [INFO] Server closed the connection.")
+                    self.running = False
                     break
 
+                message = data.decode().strip()
                 ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                print(f"\n[{ts}] [SERVER] {data.decode()}")
-            except:
+
+                if "Masukkan nickname" in message:
+                    print(f"\n{message}", end="", flush=True)
+                else:
+                    print(f"\n[{ts}] {message}")
+
+            except ConnectionResetError:
                 ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 print(f"[{ts}] [ERROR] Connection error or interrupted.")
                 break
